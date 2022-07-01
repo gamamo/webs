@@ -1,0 +1,227 @@
+library(reshape2)
+library(bipartite)
+library(dplyr)
+library(plyr)
+library(correlation)
+
+#import final data long version
+
+
+setwd("C:/Users/gabri/Dropbox/postdocINECOL/dadosCompilados/workingfolder_GM")
+dir()
+dl = read.csv(file="datalong_v29_mar_2022.csv")
+head(dl)
+colnames(dl)[1] = "Scientific"
+
+testdata=dl
+head(testdata)
+colnames(testdata)
+
+# rodar a funcao Katz ####
+katz<-function(A){
+  #-----------------------------#
+  #-Calculating Katz centrality-#
+  #-----------------------------#
+  A.eigen<-eigen(A)$values #Calculating eigenvalues
+  A.maxeigen<-ifelse(is.complex(A.eigen), max(Re(A.eigen[which(Im(A.eigen)==0)])), max(A.eigen)) # Largest eigenvalue
+  alfa <- 1/(A.maxeigen+0.1) #Calculating alfa
+  Q<-alfa*A #Multiplying A matrix with alfa
+  I<-diag(1, nrow=nrow(Q), ncol=ncol(Q)) #Getting the identity matrix of I
+  katz<-solve(I-Q) #Obtaining analytical solution to Katz centrality
+  katz_cent<-colSums(katz) #Calculating Katz centrality for each node
+  return(katz_cent)
+}
+
+
+#######################################################################################
+## separar a datalong em cada rede##
+
+head(testdata)
+webs = testdata[,1:4]
+
+webs_list = list()
+
+
+for (i in unique(webs$database)){
+  x= subset(webs, webs$database==i)
+  web_x = dcast(x,plant_id~Scientific,value.var=c("interaction"),fun.aggregate = sum)
+  rownames(web_x) = web_x[,1]
+  web_x = web_x[,-1]
+  
+  if(F){
+    if(length(which(colSums(web_x)==0))>1){
+      web_x = web_x[,-which(colSums(web_x)==0)]
+    }
+    if(length(which(rowSums(web_x)==0))>1){
+      web_x = web_x[-which(rowSums(web_x))==0,]
+    }
+  }
+  
+  webs_list[[i]] = web_x
+}
+
+#########################################################################################
+# calcular a centralidade para cada rede ####
+resu_metrics_web_list = list()
+resu_web_list = list()
+#for (j in 1:length(webs_list)){
+
+for(j in c(1:105,107:314)){ # a rede 106 ta caindo fora por enquanto pois é uma rede muito peq
+  #e nao sei o que fazer com ela
+  
+  net = webs_list[[j]]
+  net <- as.matrix(net)
+  
+  n_p = nrow(net);n_p  #informe o numero de linhas 
+  n_a = ncol(net);n_a  #informe o numero de colunas
+  
+  # coloca ela em formato em quadrado
+  
+  A <- rbind(cbind(matrix(0, n_p, n_p), net), cbind(t(net), matrix(0, n_a, n_a)))
+  
+  #Function that calculates Katz centrality for a given adjacency matrix
+  
+  katzz = katz(A)
+  katzz <- as.data.frame(tail(katzz, -n_p)) # aqui eu mudo o script orinal, colocando o -n_p, qdo no original era o valor de 6
+  colnames(katzz) = "Katz"
+  
+  katzz$Katz_z =NA
+  for(i in 1:length(katzz$Katz)){
+    katzz$Katz_z[i]  =  (katzz$Katz[i] - mean(katzz$Katz))/sd(katzz$Katz)
+  }
+  
+  bet = specieslevel(net, index="betweenness")$`higher level`[1]
+  bet$betweenness_z = NA
+  if(sum(bet$betweenness)==0){
+    bet$betweenness_z =0
+  } else {
+    for(i in 1:length(bet$betweenness)){
+      bet$betweenness_z[i]  =  (bet$betweenness[i] - mean(bet$betweenness))/sd(bet$betweenness)
+    }
+  }
+  
+  clos = specieslevel(net, index="closeness")$`higher level`[1]
+  clos$closeness_z = NA
+  for(i in 1:length(clos$closeness)){
+    clos$closeness_z[i]  =  (clos$closeness[i] - mean(clos$closeness))/sd(clos$closeness)
+  }
+  
+  deg = specieslevel(net, index="degree")$`higher level`
+  deg$degree_z = NA
+  for(i in 1:length(deg$degree)){
+    deg$degree_z[i]  =  (deg$degree[i] - mean(deg$degree))/sd(deg$degree)
+  }
+  
+  # essa parte é pro caso alguma especie nao tenha um indice calculado, aí eu coloco NA pra ela
+  
+  if(length(setdiff(colnames(net),rownames(deg)))>=1){
+    ns = setdiff(colnames(net),rownames(deg))
+    nas = matrix(NA,nrow = length(ns),ncol=2)
+    rownames(nas) = ns
+    
+    colnames(nas) = colnames(deg)
+    deg = rbind(deg,nas)
+    
+    colnames(nas) = colnames(bet)
+    bet = rbind(bet,nas)
+    
+    colnames(nas) = colnames(clos)
+    clos = rbind(clos,nas)
+  }
+  
+  # depois tem que colocar os nomes em ordem de novo
+  deg = deg[order(rownames(deg)),]
+  bet = bet[order(rownames(bet)),]
+  clos = clos[order(rownames(clos)),]
+  
+  result = data.frame(deg$degree_z, bet$betweenness_z, clos$closeness_z, katzz$Katz_z)
+  rownames(result) = rownames(katzz)
+  result$Scientific = rownames(result)
+  resu_metrics_web_list[[j]] = result
+  
+  print(j)
+} 
+
+########################################################################
+#### Calcular el PCA para cada rede ####
+
+#criar lista de resultados PCA
+PCA_webs_result = list()
+PCA_summary_result = list()
+
+# criar tabela de webs com problemas
+noPCAwebs = as.data.frame(matrix(NA,ncol=1,nrow = length(resu_metrics_web_list) ))
+
+for (j in c(1:105,107:314)){ # tirando a rede 106
+  
+  wp = resu_metrics_web_list[[j]]
+  
+  # tirar o betweeness pq eu sei que tem algumas redes que sai tudo zero nesse indice
+  wp = wp[,c("deg.degree_z","clos.closeness_z","katzz.Katz_z")]
+  
+  # se tiver um NaN no closeness ou no degree, guarda a rede pra eu ver ela depois. Se nao tiver, faz a PCA
+  if(length(which(is.nan(wp$clos.closeness_z)))>0 |length(which(is.nan(wp$deg.degree_z)))>0 ){
+    
+    noPCAwebs[j,1] = "WEB to Check"
+    
+  } else {
+    
+    model<- prcomp(na.omit(wp), center=TRUE, scale=TRUE)
+    
+    summary = summary(model)
+    PCA_summary_result [[j]] = summary$importance
+    #plot(model, col="blue")
+    #biplot(model)
+    axes <- predict(model)
+    PCA = data.frame(axes)
+    plot(PCA$PC1,PCA$PC2)
+    PCA$Scientific = rownames(PCA)
+    
+    PCA_webs_result[[j]] = left_join(PCA,resu_metrics_web_list[[j]], by="Scientific")
+    print(j)
+    
+  }
+}
+
+summaryPCAs=unlist(lapply(PCA_summary_result, FUN= function(x) sum(x[2,c(1,2)])))
+sort(summaryPCAs[which(summaryPCAs!=0)])
+length(summaryPCAs)
+
+
+PCA_summary_result[[67]]
+
+########################################################################################
+# match with species characteristics
+
+data = read.csv(file="birdtraits_spmetrics_phy_v7_abr_2022.csv")
+colnames(data)
+toexclude = c("X.1","X","degree","betweenness","closeness", "katzz","PC1","PC2",
+              "PC1_nobet","PC2_nobet")
+data=data[,-which(colnames(data) %in% toexclude)]
+
+speciesIndiWebs = list()
+for (j in c(1:105,107:314)){ # tirando a rede 106
+  
+  if(!is.null(PCA_webs_result[[j]])){ # tem que incluir esse passo pq algumas redes nao tiveram PCA calculada
+                                      # ver o aqrquivo "noPCAwebs"
+  speciesIndiWebs[[j]] = left_join(PCA_webs_result[[j]],data, by="Scientific")
+  }
+}
+
+  speciesIndiWebs = ldply(speciesIndiWebs)
+  
+  
+  write.csv(speciesIndiWebs,"database_indwebs_v7_abr_2022.csv")
+  write.csv(noPCAwebs, "No_PCA_webs.csv")
+  
+################################################################################
+  # correlation between indexes ####
+  # run the code again with the exception of lines 197 to 199
+
+  
+  corr = summary(correlation(speciesIndiWebs[,c("degree","betweenness","closeness","katzz","PC1.y")]))
+  plot(corr,show_data="points") 
+  
+  
+  
+ 

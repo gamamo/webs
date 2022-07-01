@@ -1,0 +1,875 @@
+setwd("C:/Users/gabri/Dropbox/postdocINECOL/dadosCompilados/webs_afterGMM")
+
+file.list= list.files(pattern = c("*.csv"))
+file.list2= list.files(pattern = c("*.xlsx"),full.names = F)
+files = c(file.list,file.list2)
+
+#get a list of files
+data = sapply(files, import_list)
+
+# import fixed bird data ####
+
+setwd("C:/Users/gabri/Dropbox/postdocINECOL/dadosCompilados/workingfolder_GM/bird harmonization")
+birdfiles = list.files(pattern = c("*.xlsx"),full.names = F)
+birddata = sapply(birdfiles, import_list)
+
+# replace the fixed bird data in the original datasets ####
+
+# first make birdata names compatible with data names
+for (i in seq(birdfiles)) {
+  a = birdfiles[i];a
+  b = unique(birddata[[a]][[1]]$ID1);b
+  names(birddata)[[i]] = b
+}
+
+# add respective names to the nested lists
+
+for (i in seq(birdfiles)) {
+  #a = birdfiles[i];a
+  if(length(birddata[[i]])>1){
+    for(z in 1:length(birddata[[i]])){
+      b = unique(birddata[[i]][[z]]$ID2)
+      names(birddata[[i]])[[z]] = b
+    }
+  }
+}
+
+# replace old names by the harmonized names 
+
+for (j in names(data)){
+    
+  if(length(data[[j]])>1){
+    b = names(data[[j]]);b
+    for (u in 1:length(b)){
+      colnames(data[[j]][[u]]) = birddata[[j]][[u]]$species
+    }
+  } else {
+    colnames(data[[j]][[1]]) = birddata[[j]]$`Sheet 1`$species
+  }
+}
+
+#test if a old species name is still in the harmonized data set
+#sapply(lapply(data, function(ch) grep("Poecile palustris", ch)), function(x) length(x)!=0)
+#which(sapply(lapply(data, function(ch) grep("Cac hae", ch)), function(x) length(x)!=0)==T)
+
+# excluded mamamals and lizards and unknown taxa ####
+
+
+mammalsliz = c("Cercopithecus mitis","Cercopithecus ascanius","Colobus guereza","Cerdocyon thous",
+               "Heliosciurus rufobrachium","Papio anubis","Sciurus vulgaris","Sturnira lilium",
+               "Muscardinus avellanarius","Anolis carolinensis","Lamprolepis smaragdina","Philander frenata",
+               "Carollia perspicillata","Cebus apella", "Sturnira tildae","Artibeus fimbriatus",
+               "Alouatta fusca","Artibeus lituratus","Brachyteles arachnoides","Didelphis aurita",
+               "Tapirus terrestris","Micoureus demerarae","Sciurus aestuans","Vampyressa pusilla","Artibeus jamaicensis",
+               "Artibeus obscurus","Eira barbara","Marmosops paulensis","Platyrrhinus lineatus","Pygoderma bilabiatum",
+               "Cynopterus brachyotis","Ptenochirus jagori","Ptenochirus jagorii","Martes martes","Martes foina",
+               "Meles meles","Vulpes vulpes","Oryctolagus cuniculus","Erinaceus europaeus","Sus cebifrons",
+               "Apodemus flavicollis","Brachyteles aracnoides"
+)
+
+unknowntaxa = c("Artibeus sp1 M_SD_022","Blackbird sp","Bullfinch sp","Chaffinch sp","Columba sp.","Crypturellus sp.",
+                "Dendroica sp.","Dendroica sp1","Elaenia  sp","Elaenia sp","Elaenia sp.","Elaenia spp",
+                "Elaenia spp.","Empidonax sp.","Empidonax sp1","Empidonax sp2","Eup sp.","Green Woodpecker","Icteridae",
+                "Jay sp","Leptotila sp","Magpie sp","Marsh Willow tit","Mazama sp1 M_SD_022","Meliphaga","Meliphaga sp1 M_SD_018",
+                "Moorhen sp","Myarchus sp.","Myiarchus  sp","Myiarchus spp.","N.I.","Nesospingus sp1 M SD 003",
+                "Nesospingus sp1 M SD 004","nocturnal frugivores","Nuthatch sp","observation hours","Pac sp.",
+                "Patagioenas sp","Penelope  sp","Phyllomyias sp","Phylloscopus sp.","Picus sp.","Pipridae","Pir sp.",
+                "Platyrrhinus sp1 M_SD_022","Poecile spp","Psittacida","Pte","Robin sp","Sporophila sp.",
+                "Sporophila spp.","Starling sp","Tur","Turdus  sp","Turdus sp","Turdus sp.","Tyrannidae",
+                "Unidentified sp1 M SD 003","Unidentified sp1 M_SD_008","unknown","unknown sp","unknown2 sp",
+                "unkwnon","V70","Vir","Woodpigeon sp","Zosterops spp.","Tangara_sp","Cam mel","Chl hol","Col sub",
+                "Cot cay","Cot man","Den fus","Den stri","Eub rich","Eup ruf","Gym bif","Gym yur","Ict sol","Mio sim",
+                "Myi mac","Myo mac","Myo ole","Myr axi","Ort mot","Pic fla","Pic riv","Psa vir","Pso cre","Ram nig",
+                "Ram ruf","Rhy sim","Tar maj"
+)
+
+mammalsliz = c(mammalsliz,unknowntaxa)
+
+for (m in seq(mammalsliz)){
+      sp = mammalsliz[m]
+      toex = lapply(data, function(ch) grep(sp, ch))
+
+#looping for excluding species interactions 
+    for(i in names(toex)){
+      if (length(toex[[i]])>0){
+        if(length(data[[i]])>1){
+          for(z in 1:length(data[[i]])){
+            a = colnames(data[[i]][[z]]);a
+            b= which(a==sp);b
+            if(length(b)>0){
+              data[[i]][[z]] = data[[i]][[z]][-b]
+            }
+          }
+        }else{
+          a = colnames(data[[i]][[1]]);a
+          b= which(a==sp);b
+          if(length(b)>0){
+          data[[i]][[1]] = data[[i]][[1]][-b]
+          }
+        }
+      }
+    }
+  }
+
+#test if a mammals or lizards still in the species name is still in the harmonized data set
+#sapply(lapply(data, function(ch) grep("Alouatta fusca", ch)), function(x) length(x)!=0)
+#sapply(lapply(data, function(ch) grep("Woodpigeon sp", ch)), function(x) length(x)!=0)
+
+# check the rowSums. ####
+#If =0, delete #
+
+#get the rowSums
+rowlist = list()
+for (j in names(data)){
+  rowlist[[j]]=vector("list", length(data[[j]])) 
+  
+  if(length(data[[j]])>1){
+    b = names(data[[j]]);b
+    for (u in 1:length(b)){
+      rowlist[[j]][[u]] = rowSums(data[[j]][[u]][-1])
+    }
+  } else {
+    rowlist[[j]] = rowSums(data[[j]][[1]][-1])
+  }
+}
+
+#exclude the rows
+for (j in names(data)){
+  
+  if(class(rowlist[[j]])=="list"){
+    for (u in 1:length(data[[j]])){
+      if(length(which(rowlist[[j]][[u]]==0))>0){
+        a = which(rowlist[[j]][[u]]==0)
+        data[[j]][[u]] = data[[j]][[u]][-a,]
+      }
+      }
+  } else {
+    if(length(which(rowlist[[j]]==0))>0){
+      a = which(rowlist[[j]]==0)
+      data[[j]][[1]]=data[[j]][[1]][-a,]
+    }
+  }
+}
+
+
+
+# import plant files ####
+if(F){
+setwd("C:/Users/gabri/Dropbox/postdocINECOL/dadosCompilados/workingfolder_GM/plant harmonization")
+plantfiles = list.files(pattern = c("*.xlsx"),full.names = F)
+plantdata = sapply(plantfiles, import_list)
+
+head(plantdata)
+View(plantdata)
+names(data)
+names(plantdata)
+
+str(plantdata)
+i=107
+plant[[i]]
+plantdata[[24]][[i]]
+
+names(plantdata[[24]]) = names(data)[1:108]
+names(plantdata)[1:23] = names(data)[108:130]
+
+plantdata[[1]]$`Sheet 1`$dataName
+
+# replace old names by the harmonized names 
+names(plantdata)
+for (j in names(data)){
+  
+  if(length(data[[j]])>1){
+    b = names(data[[j]]);b
+    for (u in 1:length(b)){
+      colnames(data[[j]][[u]]) = birddata[[j]][[u]]$species
+    }
+  } else {
+    colnames(data[[j]][[1]]) = birddata[[j]]$`Sheet 1`$species
+  }
+}
+
+tt =unlist(strsplit("Hedyosmun traslucidum viscus", "[ ]"))
+paste(tt[1],tt[2],sep=" ")
+}
+
+# prepare the long-format data ####
+
+meltdata = list()
+
+for (i in names(data)){
+  if(length(data[[i]])>1){
+    
+    meltdata[[i]]=vector("list", length(data[[i]])) 
+    
+    for(z in 1:length(data[[i]])){
+      
+      id1 = i
+      id2 = names(data[[i]])
+      id  = paste(id1,id2[z],sep = "_")
+      
+      #eliminate files exension from the names
+      id = gsub(".csv","",id)
+      id = gsub(".xlsx","",id)
+      id = gsub("afterGMM","",id)
+      id = gsub("afterGM","",id)
+      id = gsub("__","_",id);id
+      
+      t = as.data.frame(data[[i]][[z]]);head(t)
+      rownames(t) = t[,1]
+      t = t[,-1]
+      t = t(t)
+      t = ifelse(t>0,1,0)
+      t = melt(t);head(t)
+      colnames(t) = c("bird_id","plant_id","interaction")
+      
+      t$database = rep(id,length(t[,1]))
+      meltdata[[i]][[z]] = t
+      
+    }
+    } else{
+     #a = names(data)[[i]];a
+     t = as.data.frame(data[[i]][[1]]);head(t)
+     rownames(t) = t[,1];t
+     t = t[,-1]
+     t = t(t)
+     t = ifelse(t>0,1,0)
+     t = melt(t);head(t)
+     colnames(t) = c("bird_id","plant_id","interaction")
+    
+     #eliminate files exension from the names
+     id = i; id
+     id = gsub(".csv","",id)
+     id = gsub(".xlsx","",id)
+     id = gsub("afterGMM","",id)
+     id = gsub("afterGM","",id)
+     id = gsub("__","_",id);id
+     
+     t$database = rep(id,length(t[,1]))
+     meltdata[[i]] = t
+    }
+  }
+
+# unlist 
+
+a = list()
+b = list()
+for(i in seq(names(meltdata))){
+  if(length(names(meltdata[[i]]))>1) {
+  a[[i]] = meltdata[[i]]
+  } else{
+  ll = ldply(meltdata[[i]])
+  b[[i]] = ll
+}
+}
+
+adf = ldply(a);head(adf)
+bdf = ldply(b);head(bdf)
+
+datalong = rbind.data.frame(adf,bdf);head(datalong)
+
+#inspect species names and fix
+datalong$bird_id = gsub("_"," ",datalong$bird_id)
+datalong$bird_id = gsub("__"," ",datalong$bird_id)
+datalong$bird_id = gsub(".1"," ",datalong$bird_id)
+datalong$bird_id = gsub("  "," ",datalong$bird_id)
+datalong$bird_id = gsub(".. 7","",datalong$bird_id)
+
+aa =list()
+for(i in seq(datalong$bird_id)){
+  aa[[i]] = unlist(strsplit(datalong$bird_id[i]," "))
+}
+
+#eliminar espaco no final
+for(i in seq(datalong$bird_id)){
+  datalong$bird_id[i] = trimws(datalong$bird_id[i], "r")
+}
+
+# manually fixing some cases
+datalong$bird_id = gsub("Corvus corone corone","Corvus corone",datalong$bird_id)
+datalong$bird_id = gsub("Andropadus l. latirostris","Andropadus latirostris",datalong$bird_id)
+datalong$bird_id = gsub("Buccanodon d. duchaillui","Buccanodon duchaillui",datalong$bird_id)
+datalong$bird_id = gsub("Andropadus v. virens","Andropadus virens",datalong$bird_id)
+datalong$bird_id = gsub("Baeopogon i. indicator","Baeopogon indicator",datalong$bird_id)
+datalong$bird_id = gsub("Andropadus c. curvirostris","Andropadus curvirostris",datalong$bird_id)
+datalong$bird_id = gsub("Dicrurus a. adsimilis","Dicrurus adsimilis",datalong$bird_id)
+datalong$bird_id = gsub("Malaenomis f. fischeri","Malaenomis fischeri",datalong$bird_id)
+datalong$bird_id = gsub("Fomicivora rufa","Formicivora rufa",datalong$bird_id)
+datalong$bird_id = gsub("Gnomiropsar chopi","Gnorimopsar chopi",datalong$bird_id)
+datalong$bird_id = gsub("Irene puella","Irena puella",datalong$bird_id)
+datalong$bird_id = gsub("Irene puella","Irena puella",datalong$bird_id)
+datalong$bird_id = gsub("Lanio cuculatus","Lanio cucullatus",datalong$bird_id)
+datalong$bird_id = gsub("Megarynchus pitanga","Megarynchus pitangua",datalong$bird_id)
+datalong$bird_id = gsub("Melilestes megarhycus","Melilestes megarhynchus",datalong$bird_id)
+datalong$bird_id = gsub("Microdyna misparva","Microdynamis parva",datalong$bird_id)
+datalong$bird_id = gsub("Mino dumonti","Mino dumontii",datalong$bird_id)
+datalong$bird_id = gsub("Minodu monti","Mino dumontii",datalong$bird_id)
+datalong$bird_id = gsub("Myiozetes","Myiozetetes",datalong$bird_id)
+datalong$bird_id = gsub("Paraside araggiana","Paradisaea raggiana",datalong$bird_id)
+datalong$bird_id = gsub("Parasidea raggiana","Paradisaea raggiana",datalong$bird_id)
+datalong$bird_id = gsub("Pipilo erythophtalmus","Pipilo erythrophthalmus",datalong$bird_id)
+datalong$bird_id = gsub("Platyspizia crassirostris","Platyspiza crassirostris",datalong$bird_id)
+datalong$bird_id = gsub("Ploceus niggerrimus","Ploceus nigerrimus",datalong$bird_id)
+datalong$bird_id = gsub("Pycnonotus goavier","Pycnonotus goiavier",datalong$bird_id)
+datalong$bird_id = gsub("Reinwardtoena reinwardtii","Reinwardtoena reinwardtsi",datalong$bird_id)
+datalong$bird_id = gsub("Rupicola peruviana","Rupicola peruvianus",datalong$bird_id)
+datalong$bird_id = gsub("Schistoclamys rufi capillus","Schistochlamys ruficapillus",datalong$bird_id)
+datalong$bird_id = gsub("Seiurus aurocapillus","Seiurus aurocapilla",datalong$bird_id)
+datalong$bird_id = gsub("Carduelis citrinella","Serinus citinella",datalong$bird_id)
+datalong$bird_id = gsub("Carduelis citrinella","Serinus citrinella",datalong$bird_id)
+datalong$bird_id = gsub("Tachyponus","Tachyphonus",datalong$bird_id)
+datalong$bird_id = gsub("Tangara xantocephala","Tangara xanthocephala",datalong$bird_id)
+datalong$bird_id = gsub("Thraupis episcopus...30","Thraupis episcopus",datalong$bird_id)
+datalong$bird_id = gsub("Thraupis palmerum","Thraupis palmarum",datalong$bird_id)
+datalong$bird_id = gsub("Turdus phillomelos","Turdus philomelos",datalong$bird_id)
+datalong$bird_id = gsub("Tyrannus savanna","Tyrannus savana",datalong$bird_id)
+datalong$bird_id = gsub("Volatina","Volatinia",datalong$bird_id)
+datalong$bird_id = gsub("Zosterops japonica","Zosterops japonicus",datalong$bird_id)
+datalong$bird_id = gsub("Lanio penicillatus","Eucometis penicillata",datalong$bird_id)
+datalong$bird_id = gsub("Treron calva","Treron calvus",datalong$bird_id)
+
+#fix more names
+datalong$bird_id = multigsub(c("Aburria jacutinga","Aburria pipile","Baillonius bailloni",
+                               "Buccanodon leucotis","Cardellina canadensis","Celeus grammineus","Centurus aurifrons",
+                               "Centurus pygmaeus","Cerasophila thompsoni","Ceratogymna subcylindrica",
+                               "Chalcomitra amethystina","Chalcomitra senegalensis","Cinnyris chalybeus",
+                               "Cinnyris venustus","Cinnyris asiaticus","Columba fasciata","Columba flavirostris",
+                               "Columba plumbea","Columba squamosa","Conopias trivirgata","Criniger bres",
+                               "Criniger finschii","Criniger phaeocephalus","Crithagra flaviventris",
+                               "Crithagra gularis","Crithagra mozambica","Crithagra scotops",
+                               "Crithagra sulphurata","Dicaeum chrysorrherum","Diphyllodes magnificus",
+                               "Elaeni pallatangae","Emberiza lathami","Empidonax euleri","Empidonax trailliii",
+                               "Finschia novaeseelandiae","Geokichla citrina","Geokichla gurneyi","Geothlypis philadelphia",
+                               "Haemorhous cassinii","Haemorhous mexicanus","Haemorhous purpureus",
+                               "Hapalopsittca melanotis","Harpactes diardi","Helmitheros vermivorus",
+                               "Iduna natalensis","Ixoreus naevius","Knipoleugus lophotes","Leiothlypis peregrina"
+                               ),
+                             
+                            c("Pipile jacutinga","Pipile pipile","Pteroglossus bailloni",
+                               "Stactolaema leucotis","Wilsonia canadensis","Celeus grammicus","Melanerpes aurifrons",
+                               "Melanerpes pygmaeus","Hypsipetes thompsoni","Bycanistes subcylindricus",
+                               "Nectarinia amethystina","Nectarinia senegalensis","Nectarinia chalybea",
+                               "Nectarinia venusta","Nectarinia asiatica","Patagioenas fasciata","Patagioenas flavirostris",
+                               "Patagioenas plumbea","Patagioenas squamosa","Conopias trivirgatus","Alophoixus bres",
+                               "Alophoixus finschii","Alophoixus phaeocephalus","Serinus flaviventris",
+                               "Serinus gularis","Serinus mozambicus","Serinus scotops","Serinus sulphuratus",
+                               "Dicaeum chrysorrheum","Cicinnurus magnificus","Elaenia pallatangae","Melophus lathami",
+                               "Lathrotriccus euleri","Empidonax traillii","Mohoua novaeseelandiae",
+                               "Zoothera citrina","Zoothera gurneyi","Oporornis philadelphia","Carpodacus cassinii",
+                               "Carpodacus mexicanus","Carpodacus purpureus","Hapalopsittaca melanotis",
+                               "Harpactes diardii","Helmitheros vermivorum","Chloropeta natalensis","Zoothera naevia",
+                               "Knipolegus lophotes","Vermivora peregrina"),
+                             datalong$bird_id)
+
+datalong$bird_id = multigsub(c("Myarchus antillarum","Myarchus crinitus","Myiarchis antillarum",
+                               "Myiodinastes maculatus","Nigrita canicapilla schistacea","Patagioena plumbea",
+                               "Patagioenas picazura","Penelope jaquacu","Phaetornis eurynome",
+                               "Phyllomyias sclatery","Phylomyias sclateri","Pipreola phulchra",
+                               "Porphyrolaema porphyriolema","Rhyticero splicatus","Urocissa erythroryncha","Ara severus"),
+                             
+                             c("Myiarchus antillarum","Myiarchus crinitus","Myiarchus antillarum",
+                               "Myiodynastes maculatus","Nigrita canicapillus",
+                               "Patagioenas plumbea","Patagioenas picazuro","Penelope jacquacu",
+                               "Phaethornis eurynome","Phyllomyias sclateri","Phyllomyias sclateri",
+                               "Pipreola pulchra","Porphyrolaema porphyrolaema","Rhyticeros plicatus",
+                               "Urocissa erythrorhyncha","Ara severus"),
+                             datalong$bird_id
+                             )
+
+datalong$bird_id = multigsub(c("Vermivora celata","Leiothlypis peregrina","Leptocoma zeylonica","Lophaphanes cristatus","Lophophanes cristatus",
+                            "Lumprocolius corruscus","Melaniparus albiventris","Melaniparus funereus","Melano charisnigra","Melozone crissalis",
+                            "Myiothlypis flaveola","Nesomimus melanotis","Nesomimus parvulus","Notopholia corrusca","Pastor roseus",
+                            "Periparus ater","Phonygammus keraudrenii","Piculus rivolii","Piculus rubiginosus","Pionites melanocephala",
+                            "Pipra coronata","Pitylus fuliginosus","Platycichla flavipes","Procnias tricarunculata","Pseudopipra pipra",
+                            "Psilhorinus morio","Psilorhinus morio","Ptilolaemus austeni","Rhabdornis mysticalis","Rhyticeros corrugatus",
+                            "Rhyticeros plicatus","Rhyticeros undulatus","Schistolais leucopogon","Setophaga castanea",
+                            "Setophaga coronata","Setophaga fusca","Setophaga dominica","Setophaga occidentalis","Setophaga pensylvanica",
+                            "Setophaga petechia","Spinus lawrencei","Spinus magellanicus","Spinus olivaceus","Spinus pinus","Spinus psaltria",
+                            "Spinus xanthogastrus","Stachyridopsis ruficeps","Stilpnia larvata","Streptopelia chinensis",
+                            "Streptopelia senegalensis","Sturnia malabarica" ,"Sturnia pagodarum","Sturnia sinensis","Tangara ornata",
+                            "Tangara palmarum","Tangara sayaca","Tauraco porphyrocephalus","Tetrastes bonasia","Trochalopteron lineatum",
+                            "Turdus dauma"),
+                            c("Leiothlypis celata","Vermivora peregrina","Nectarinia zeylonica","Parus cristatus","Parus cristatus",
+                            "Lamprotornis corruscus","Parus albiventris","Parus funereus","Melanocharis nigra","Pipilo crissalis",
+                            "Basileuterus flaveolus","Mimus melanotis","Mimus parvulus","Lamprotornis corruscus","Sturnus roseus",
+                            "Parus ater","Manucodia keraudrenii","Colaptes rivolii","Colaptes rubiginosus","Pionites melanocephalus",
+                            "Lepidothrix coronata","Saltator fuliginosus","Turdus flavipes","Procnias tricarunculatus","Pipra pipra",
+                            "Cyanocorax morio","Cyanocorax morio","Anorrhinus austeni","Rhabdornis mystacalis","Aceros corrugatus",
+                            "Aceros plicatus","Aceros undulatus","Prinia leucopogon","Dendroica castanea","Dendroica coronata",
+                            "Dendroica fusca","Dendroica dominica","Dendroica occidentalis","Dendroica pensylvanica","Dendroica petechia",
+                            "Carduelis lawrencei","Carduelis magellanica","Carduelis olivacea","Carduelis pinus","Carduelis psaltria",
+                            "Carduelis xanthogastra","Stachyris ruficeps","Tangara larvata","Stigmatopelia chinensis",
+                            "Stigmatopelia senegalensis","Sturnus malabaricus","Sturnus pagodarum","Sturnus sinensis","Thraupis ornata",
+                            "Thraupis palmarum","Thraupis sayaca","Iridosornis porphyrocephalus","Bonasa bonasia","Garrulax lineatus",
+                            "Zoothera dauma"),
+                          datalong$bird_id)
+
+
+
+# excluded duplicated datasets after manual inspection
+setwd("C:/Users/gabri/Dropbox/postdocINECOL/dadosCompilados/workingfolder_GM")
+dup_toexclude = import(file="overlappingwebs_toexclude_v1.xlsx")
+
+#identify those that names do not match
+dup_toexclude$ID_excelsheet[which(dup_toexclude$ID_excelsheet %in% datalong$database==F)]
+
+unique(datalong$database[grep("n6",datalong$database)])
+unique(datalong$database[grep("n1_W",datalong$database)])
+unique(datalong$database[grep("Palacio",datalong$database)])
+
+#fix the names after the inspection
+
+dup_toexclude$ID_excelsheet[which(dup_toexclude$ID_excelsheet=="n6_Fadini_MG_NA")]= "n6_Fadini_MG"
+dup_toexclude$ID_excelsheet[which(dup_toexclude$ID_excelsheet=="n1_Wesley_NA")]= "n1_Wesley"
+dup_toexclude$ID_excelsheet[
+  which(dup_toexclude$ID_excelsheet=="Palacio et al btp12290-sup-0001-appendixs1_NA")]= "Palacio et al btp12290-sup-0001-appendixs1"
+
+#doble check
+sort(dup_toexclude$ID_excelsheet)
+dup_toexclude$ID_excelsheet %in% datalong$database
+
+# and exclude
+datalong = datalong[-which(datalong$database %in% dup_toexclude$ID_excelsheet),]
+head(datalong)
+
+#export final version
+
+#setwd("C:/Users/gabri/Dropbox/postdocINECOL/dadosCompilados/workingfolder_GM")
+#export(datalong, "datalong.csv")
+
+
+# match with Fricke et al. ##########################
+
+setwd("C:/Users/gabri/Dropbox/postdocINECOL/dadosCompilados/Fricke github")
+fricke = read.csv(file="frickeetal_github_toR.csv")
+fricketomatch = read.csv(file="frickeetal_github_tomatch.csv")
+
+
+lines = list()
+for (i in 1:length(fricketomatch$ï..to_include)){
+  lines[[i]] = grep(fricketomatch$ï..to_include[i],fricke$net_id)
+}
+
+lines = unlist(lines)
+fricke = fricke[lines,]
+fricke = subset(fricke, fricke$animal_group=="birds")
+fricke = fricke[,c("animal_accepted_species","plant_accepted_species","net_id","freq")]
+colnames(fricke) = c("bird_id","plant_id","database","interaction")
+
+# match with datalong
+
+finaldatalong = bind_rows(datalong,fricke)
+
+#do more fixing
+finaldatalong$bird_id = gsub("Antilophila","Antilophia",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Aratinga leucophthalmus","Aratinga leucophthalma",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Bycanistes buccinator","Bycanistes bucinator",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Carpornis cucullatus","Carpornis cucullata",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Casiornis rufa","Casiornis rufus",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Chloropsis cochinchinesis","Chloropsis cochinchinensis",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Cissopis leveriana","Cissopis leverianus",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Cychlaris gujanensis","Cyclarhis gujanensis",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Cyclopsittaca gulielmiterti","Cyclopsitta gulielmitertii",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Dendroica fuscus","Dendroica fusca",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Dicaeum chrysorrheum","Dicaeum chrysorrherum",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Diglossa caerulesens","Diglossa caerulescens",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Empidonax trailli","Empidonax traillii",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Erponis zantholeuca","Erpornis zantholeuca",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Euphonia clorothica","Euphonia chlorotica",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Hylocicbla mustelina","Hylocichla mustelina",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Hyloeichla mustelina","Hylocichla mustelina",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Icterus pyrropterus","Icterus pyrrhopterus",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Leptotila cassinii","Leptotila cassini",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Macronus gularis","Macronous gularis",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Manucodia chalybata","Manucodia chalybatus",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Megarhynchus pitangua","Megarynchus pitangua",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Mino dumontiii","Mino dumontii",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Orthopsittaca manilatus","Orthopsittaca manilata",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Picus viridus","Picus viridis",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Pitohuikirho cephalus","Pitohui kirhocephalus",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Pteroglossus torguatus","Pteroglossus torquatus",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Saxicola torquata","Saxicola torquatus",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Schiffornis turdinus","Schiffornis turdina",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Serinus citinella","Carduelis citrinella",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Serinus citrinella","Carduelis citrinella",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Tachyphonus surinamensis","Tachyphonus surinamus",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Turdus ruvifentris","Turdus rufiventris",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Xanthotis polygramma","Xanthotis polygrammus",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Atilla","Attila",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Ara severa","Ara severus",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Ara manilata","Orthopsittaca manilata",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Chloris chloris","Carduelis chloris",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Cissilopha yucatanica","Cyanocorax yucatanicus",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Phonygammus keraudrenii","Manucodia keraudrenii",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Geothlypis philadelphia","Oporornis philadelphia",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Columba larvata","Aplopelia larvata",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Streptopelia senegalensis","Stigmatopelia senegalensis",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Streptopelia chinensis","Stigmatopelia chinensis",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Vireo altiloquous","Vireo altiloquus",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Empidonax trailliii","Empidonax traillii",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Lanio cristatus","Lanius cristatus",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Setophaga castanea","Dendroica castanea",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Setophaga coronata","Dendroica coronata",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Setophaga coronata","Dendroica coronata",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Setophaga dominica","Dendroica dominica",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Setophaga fusca","Dendroica fusca",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Setophaga occidentalis","Dendroica occidentalis",finaldatalong$bird_id)
+finaldatalong$bird_id = gsub("Setophaga pensylvanica","Dendroica pensylvanica",finaldatalong$bird_id)
+
+
+#setwd("C:/Users/gabri/Dropbox/postdocINECOL/dadosCompilados/workingfolder_GM")
+#export(finaldatalong,"datalong_v12_nov_2021.csv")
+
+length(unique(finaldatalong$bird_id))
+
+# prepare the db #####
+getwd()
+
+setwd("C:/Users/gabri/Dropbox/postdocINECOL/dadosCompilados/Fricke github")
+frickedatabase = read.csv(file = "network_metadata.csv")
+frickeref = read.csv(file = "network_references.csv")
+
+finaldatalong$lat = NA
+finaldatalong$lon = NA
+finaldatalong$ref = NA
+
+#eliminate extra leading 
+db$ID_excelsheet = gsub("_NA","",db$ID_excelsheet) # db se cria no script 1
+finaldatalong$database = trimws(finaldatalong$database,"right",whitespace = "_")
+
+#associate lat and long from fricke databases
+for(i in unique(frickedatabase$net_id)){
+  finaldatalong[which(finaldatalong$database==i),"lat"] = frickedatabase[which(frickedatabase$net_id==i),"latitude"]
+  finaldatalong[which(finaldatalong$database==i),"lon"] = frickedatabase[which(frickedatabase$net_id==i),"longitude"]
+}
+
+#associate the reference
+frickedatabase$ref = NA
+for(i in unique(frickeref$Study.ID)){
+  frickedatabase[which(frickedatabase$study_id==i),"ref"] =frickeref[which(frickeref$Study.ID==i),"Reference"]
+}
+
+for (i in unique(frickedatabase$net_id)) {
+  finaldatalong[which(finaldatalong$database==i),"ref"] = frickedatabase[which(frickedatabase$net_id==i),"ref"]
+}
+
+# associate lat, long and reference from my database
+for(i in unique(db$ID_excelsheet)){
+  finaldatalong[which(finaldatalong$database==i),"lat"] = db[which(db$ID_excelsheet==i),"latitude"]
+  finaldatalong[which(finaldatalong$database==i),"lon"] = db[which(db$ID_excelsheet==i),"longitude"]
+  finaldatalong[which(finaldatalong$database==i),"ref"] = db[which(db$ID_excelsheet==i),"Reference"]
+}
+
+#exclude empity lines
+
+finaldatalong = finaldatalong[which(!is.na(finaldatalong$bird_id)),]
+finaldatalong = finaldatalong[which(!is.na(finaldatalong$plant_id)),]
+finaldatalong = finaldatalong[which(!is.na(finaldatalong$interaction)),]
+
+length(finaldatalong$bird_id)
+length(unique(finaldatalong$bird_id))
+
+
+
+# clean plantnames ####
+
+finaldatalong$plant_id = trimws(finaldatalong$plant_id,"r")
+finaldatalong$plant_id = gsub("_"," ",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("  "," ",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("Aegiphilia integrifolia","Aegiphila integrifolia",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("Aglaia marianensis","Aglaia mariannensis",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("Celtis iguaneae","Celtis iguanaea",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("Cheirodendron trigynum","Cheirodendron trigynum",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("Cecropia glaziovi","Cecropia glaziouvii",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("Cecropia glaziovii","Cecropia glaziouvii",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("Cecropia pachystachia","Cecropia pachystachya",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("Bischhofia javanica","Bischofia javanica",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("Citharexylum mirianthum","Citharexylum myrianthum",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("Dendropanax cuneatum","Dendropanax cuneatus",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("Didymopanax angustissimum","Schefflera angustissima",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("Didymopanax angustissimus","Schefflera angustissima",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("Drimys winterii","Drimys winteri",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("eurya","Eurya",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("Euonymus europaea","Euonymus europaeus",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("Hedychium gardneranum","Hedychium gardnerianum",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("Maytenus robustus","Maytenus robusta",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("Ficus luschnatiana","Ficus luschnathiana",finaldatalong$plant_id)
+
+
+finaldatalong$plant_id = multigsub(c("Acaciasp.","Acersp.","Aglaiasp.","Aglaiasp..","Alchorneasp.",
+                                     "Amelanchiersp.","Annonasp.","Anthuriumsp..","Antidaphnesp.",
+                                     "Araliasp.inosa","Arecaceaesp.","Atriplexsp..","Beilschmiediasp.. 1",
+                                     "Bromeliaceaesp.","Bromeliaceaesp..","Byrsonimasp.icata",
+                                     "Cec ang","Cecropiasp.","Cecropiasp..","Cecropiasp.1",
+                                     "Citharexylum mirianthum","Codonanthesp.","Codonanthesp..",
+                                     "Costussp.icatus","Cussoniasp.icata","Dracantomelonsp..","Dracantomelonsp.",
+                                     "Dysoxylumsp. 1","Dysoxylumsp.1","Dysoxylumsp..1","Elaeocarpussp.",
+                                     "Elaeocarpussp..","Erythroxylumsp.","Erythroxylumsp..","Eugeniasp.",
+                                     "Eugeniasp..","Euryasp.","Euryasp..","FIcus citrifolia",
+                                     "Ficussp.. 1","Ficussp..1","Ficussp..3","Ficussp..4","Ficussp..5",
+                                     "Ficussp.1","Fimbrystilis dichotoma","Fragaria vespa","Fuc leh",
+                                     "Harungana madag.","Henrietteasp.","Ise lae","Lauraceaesp.",
+                                     "Leandra xanthocona","Lonicera peryclimenum","Maytenus aquifolium",
+                                     "Maytenus sp."),
+                                   
+                                   c("Acacia sp.","Acer sp.","Aglaia sp.","Aglaia sp..","Alchornea sp.",
+                                     "Amelanchier sp.","Annona sp.","Anthurium sp.","Antidaphne sp.",
+                                     "Aralia spinosa","Arecaceae sp.","Atriplex sp.","Beilschmiedia sp.1",
+                                     "Bromeliaceae sp.","Bromeliaceae sp.","Byrsonima spicata",
+                                     "Cecropia angustifolia","Cecropia sp.","Cecropia sp.","Cecropia sp.1",
+                                     "Citharexylum myrianthum","Codonanthe sp.","Codonanthe sp.",
+                                     "Costus spicatus","Cussonia spicata","Dracantomelon sp.","Dracantomelon sp.",
+                                     "Dysoxylum sp.1","Dysoxylum sp.1","Dysoxylum sp.1","Elaeocarpus sp.",
+                                     "Elaeocarpus sp.","Erythroxylum sp.","Erythroxylum sp.","Eugenia sp.",
+                                     "Eugenia sp.","Eurya sp.","Eurya sp.","Ficus citrifolia","Ficus sp.1","Ficus sp.1","Ficus sp.3","Ficus sp.4","Ficus sp.5",
+                                     "Ficus sp.1","Fimbrystylis dichotoma","Fragaria vesca","Fuchsia lehmannii",
+                                     "Harungana madagascariensis","Henriettea sp.","Isertia laevis","Lauraceae sp.",
+                                     "Leandra xanthocoma","Lonicera peryclymenum","Maytenus aquifolia",
+                                     "Maytenussp."),
+                                   finaldatalong$plant_id)
+
+if(F){
+finaldatalong$plant_id = gsub("ACHATOCARPACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("ANACARDIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("ANNONACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("APOCYNACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("AQUIFOLIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("ARACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("ARALIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("ARECACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("ASTERACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("BORAGINACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("BROMELIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("BURSERACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CACTACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CANNABACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CAPPARACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CARYOCARACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CELASTRACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CHLORANTHACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CLUSIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CONNARACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CUCURBITACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CHRYSOBALANACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("COMBRETACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("COMMELINACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CONNARACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CYPERACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("DILLENIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("EBENACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("ERICACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("ERYTHROXYLACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("EUPHORBIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("FABACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("GESNERIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("HAEMODORACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("HELICONIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("HUMIRIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("HYPERICACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("HYPOXIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("LAMIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("LAURACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("LECYTHIDACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("LOASACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("MALPIGHIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("MALVACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("MARCGRAVIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("MELASTOMATACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("MELIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("MENISPERMACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("MISTLETOES ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("MORACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("MYRISTICACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("SYMPLOCACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("STYRACACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("URTICACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("VERBENACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("VITACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("NYCTAGINACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("OCHNACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("MYRTACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("MYRSINACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("MARCGRAVIACEAE","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("MYRTACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CHRYSOBALANACEAE","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CARYOCCaryocar","Caryocar",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("ACHATOCARPACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("ACHATOCARPACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("AMARANTHACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("ANACARDIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("ANNONACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("APOCYNACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("AQUIFOLIACEAE","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("ARACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("ARALIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("ARECACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("ASTERACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("ASTERACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("BORAGINACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("BROMELIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("BURSERACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CACTACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CANNABACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CAPPARACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CARYOCARACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CELASTRACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CHLORANTHACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CHRYSOBALANACEAE","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CLUSIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("COMBRETACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("COMMELINACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CONNARACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CUCURBITACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("CYPERACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("DILLENIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("EBENACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("ERICACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("ERYTHROXYLACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("EUPHORBIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("FABACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("GESNERIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("HAEMODORACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("HELICONIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("HUMIRIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("HYPERICACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("HYPOXIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("LAURACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("LECYTHIDACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("LOASACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("MAGNOLIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("MALVACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("MALPIGHIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("MARCGRAVIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("MALPIGHIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("MELASTOMATACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("MELIACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("MENISPERMACEAE ","",finaldatalong$plant_id)
+finaldatalong$plant_id = gsub("MISTLETOES ","",finaldatalong$plant_id)
+
+
+
+finaldatalong$plant_id = multigsub(c("NYCTAGINACEAE " ,"OCHNACEAE ","ONAGRACEAE ",
+                                     "PASSIFLORACEAE ","PENTAPHYLACACEAE ","PHYLLANTHACEAE ","PIPERACEAE ",
+                                     "POACEAE ","POLYGONACEAE ","PORTULACACEAE ","RHAMNACEAE ","ROSACEAE ",
+                                     "RUBIACEAE ","RUTACEAE ","SALICACEAE ","SAPINDACEAE ","SAPOTACEAE ",
+                                     "SIMAROUBACEAE ","SIPARUNACEAE ","SMILACACEAE ","SOLANACEAE "
+                                     ),
+                                   
+                                   c("","","", "","","","","","","","","","","","","","",
+                                     "","","",""
+                                     ),
+                                   finaldatalong$plant_id)
+}
+
+
+
+#lcvp_fuzzy_search("Maytenus robustus" , max.distance = 2,bind_result = F,progress_bar = T)
+
+#final cleaning ####
+
+length(unique(finaldatalong$bird_id))
+#transform all interactions in binary
+
+finaldatalong2 = finaldatalong
+sort(unique(finaldatalong2$database))
+
+#essa parte está estranha, nao me lembro pq fiz ela
+toadd = data.frame(
+  bird_id=c("Anairetes parulus","Cinclodes fuscus","Cinclodes patagonicus","Curaeus curaeus","Diuca diuca",
+            "Phrygilus patagonicus","Phytotoma rara","Spinus barbatus","Hippolais polyglotta","Turdus merula",
+            "Francolinus afer","Patagioenas nigrirostris","Trogon bairdii","Trogon violaceus",
+            "Arremon assimilis","Hemispingus frontalis","Hemispingus frontalis",
+            "Myiarchus cephalotes","Myiarchus cephalotes"),
+  plant_id=c(rep("Indet_Armesto1987",8),"Rosaceae_indetCruz2013","Poaceae_indetCruz2013",
+             "Unidentified Engel2000.unidsp.73",rep("Cecropia Skutch1980.unidsp.mult",3),
+             rep("Miconia Zamora-Delgado2008.unidsp.mult",2),"Piper Zamora-Delgado2008.unidsp.17",
+             "Orthaea Zamora-Delgado2008.unidsp.322","Unknown Zamora-Delgado2008.unidsp.1"
+             ),
+  database=c(rep("Armesto 1987",8),"Cruz 2013 Summer","Cruz 2013 Summer","Engel 2000",rep("Skutch 1980",3),
+             rep("Zamora-Delgado 2008",5)
+             ),
+  lat=c(rep(-42,8),40.22333,40.22333,-4.2,9.33,9.33,9.33,rep(-3.971667,5)),
+  long=c(rep(-74,8),-8.4647,-8.4647,39.4,-83.63,-83.63,-83.63,rep(-79.07889,5)),
+  ref=c(rep("Armesto, J. J., Rozzi, R. I. C. A. R. D. O., Miranda, 
+            P. A. M. E. L. A., & Sabag, C. A. R. L. O. S. (1987). 
+            Plant/frugivore interactions in South American temperate forests. 
+            Revista Chilena de Historia Natural, 60(2), 321-336.",8),
+            "Cruz, J. C., Ramos, J. A., Da Silva, L. P., Tenreiro, P. Q., 
+        & Heleno, R. H. (2013). Seed dispersal networks in an urban novel ecosystem. 
+        European journal of forest research, 132(5-6), 887-897.",
+        "Cruz, J. C., Ramos, J. A., Da Silva, L. P., Tenreiro, P. Q., 
+        & Heleno, R. H. (2013). Seed dispersal networks in an urban novel ecosystem. 
+        European journal of forest research, 132(5-6), 887-897.",
+        "Engel, T. R. (2000). Seed dispersal and forest regeneration in a tropical
+        lowland biocoenosis (Shimba Hills, Kenya). Logos Verlag.",
+        rep("Skutch, A. F. (1980). Arils as food of tropical American birds. The Condor, 82(1), 31-42.",3),
+        rep("Zamora Delgado, J. L. (2008). Dispersión de semillas por aves y murciélagos frugívoros en claros 
+        naturales del bosque montano en la estribación suroriental de los Andes del Ecuador. Thesis. 
+        Universidad del Azuay, Ecuador.",5)
+        )
+  )
+
+
+head(finaldatalong2)
+head(toadd)
+#finaldatalong2 = rbind(finaldatalong2,toadd)
+
+finaldatalong2[which(finaldatalong2$interaction>0),"interaction"] = 1 
+
+# check those bird species with no interactions
+spint = list()
+for (i in unique(finaldatalong2$bird_id)){
+  spint[[i]]=sum(finaldatalong2[which(finaldatalong2$bird_id==i),"interaction"])
+}
+
+birdsnointeraction = c(names(which(spint==0)))
+
+finaldatalong2= finaldatalong2[-which(finaldatalong2$bird_id %in% birdsnointeraction),]
+
+# eliminar os beija-flores
+
+finaldatalong2=finaldatalong2[-which(finaldatalong2$bird_id=="Phaethornis eurynome"),]
+
+
+
+# final final changes #####
+setwd("C:/Users/gabri/Dropbox/postdocINECOL/dadosCompilados/workingfolder_GM")
+tochange = read.csv("temp_namestochange.csv")
+head(tochange)
+str(tochange)
+is.na(tochange)
+
+duplines = which(tochange$old==tochange$new)
+tochange= tochange[-c(duplines),]
+
+for (i in unique(tochange$old)) {
+  finaldatalong2[which(finaldatalong2$bird_id==i),"bird_id"] = tochange[which(tochange$old==i),"new"]
+}
+
+#change some species names that insist in remain
+
+finaldatalong2$bird_id = gsub("Treron calva","Treron calvus",finaldatalong2$bird_id)
+finaldatalong2$bird_id = gsub("Lanio penicillatus","Eucometis penicillata",finaldatalong2$bird_id)
+
+psittacidae = c("Amazona aestiva"        ,     "Amazona albifrons"     ,     "Amazona autumnalis",         
+               "Amazona farinosa"       ,    "Amazona mercenaria"     ,   "Amazona ochrocephala" ,      
+               "Ara chloropterus"       ,     "Ara macao"             ,    "Ara militaris"        ,      
+               "Ara severus"            ,     "Aratinga aurea"        ,    "Aratinga leucophthalma",     
+               "Aratinga mitrata"       ,     "Aratinga nana"         ,     "Aratinga wagleri"    ,       
+               "Brotogeris chiriri"     ,     "Brotogeris cyanoptera" ,    "Brotogeris jugularis" ,      
+               "Brotogeris tirica"      ,     "Brotogeris versicolurus",     "Cyanoramphus auriceps",      
+               "Cyanoramphus novaezelandiae", "Cyclopsitta gulielmitertii",  "Diopsittaca nobilis"  ,      
+               "Forpus conspicillatus"  ,     "Forpus xanthopterygius"    ,  "Hapalopsittaca melanotis" ,  
+               "Loriculus galgulus"     ,     "Loriculus vernalis"        ,  "Myiopsitta monachus"  ,      
+               "Orthopsittaca manilata" ,     "Pionites melanocephalus"   ,  "Pionus maximiliani"   ,      
+               "Pionus menstruus"       ,     "Pionus senilis"            ,  "Pionus sordidus"      ,      
+               "Pionus tumultuosus"     ,     "Psittacula alexandri"      ,  "Psittacula cyanocephala",    
+               "Psittacula himalayana"  ,     "Psittacula krameri"        ,  "Pyrrhura albipectus"  ,      
+               "Pyrrhura frontalis"     ,     "Pyrrhura hoffmanni"        ,  "Pyrrhura melanura"    ,      
+               "Pyrrhura molinae"       ,     "Triclaria malachitacea")
+
+finaldatalong2 = finaldatalong2[-which(finaldatalong2$bird_id %in% psittacidae ),]
+
+setwd("C:/Users/gabri/Dropbox/postdocINECOL/dadosCompilados/workingfolder_GM")
+
+export(finaldatalong2,"datalong_v29_mar_2022.csv")
+head(finaldatalong2)

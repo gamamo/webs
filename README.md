@@ -1,1 +1,1 @@
-# Codes for analysis of the mutualistic networks used in the Ciencia Basica project SEP-CONACYT CB-2017-2018 A1-S-34563
+# Codes for analysis of the manuscript "Species-level drivers of avian centrality within seed-dispersal networks across different levels of organization" submitted to the journal Proceedings of the Royal Society B: Biological Sciences
